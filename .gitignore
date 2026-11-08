@@ -5,3 +5,7 @@ xcuserdata/
 *.xcuserstate
 git_token*
 .env*
+
+# Editor temporary files
+*.swp
+*.swo

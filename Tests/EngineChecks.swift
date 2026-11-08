@@ -43,7 +43,8 @@ import Foundation
         game.racks[1] = [Tile("S",1),Tile("A",1),Tile("T",1),Tile("E",1),Tile("R",1),Tile("N",1),Tile("O",1)]
         guard let computer = Opponent.bestMove(game:game,lexicon:lex,seconds:2) else { fatalError("Computer found no move") }
         precondition(tryScore(game,computer.tiles,lex) == computer.points)
-        let full = Lexicon(text: try String(contentsOfFile:"ZeeScrabble/words.txt",encoding:.utf8))
+        let full = Lexicon(text: try String(contentsOfFile:"ZeeWords/dictionary.txt",encoding:.utf8))
+        precondition(full.contains("CAT") && !full.contains("DEBEIGE"), "Bundled dictionary regression")
         var match = Game()
         for _ in 0..<12 {
             if match.finished { break }

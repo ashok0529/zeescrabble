@@ -1,5 +1,5 @@
 import SwiftUI
 
-@main struct ZeeScrabbleApp: App {
+@main struct ZeeWordsApp: App {
     var body: some Scene { WindowGroup { GameView() } }
 }
