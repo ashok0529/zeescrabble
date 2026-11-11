@@ -119,7 +119,7 @@ struct GameView: View {
         let contentWidth = side + 380
         return ScrollView {
             VStack(spacing: 16) {
-                breakfastHeader(width: contentWidth, height: 72)
+                breakfastHeader(width: contentWidth, height: 110)
                 HStack(alignment: .top, spacing: 24) {
                     boardViewport(size: CGSize(width: side + 32, height: side), square: true)
                         .frame(width: side)
@@ -166,19 +166,11 @@ struct GameView: View {
     }
     private func breakfastHeader(width: CGFloat, height: CGFloat? = nil) -> some View {
         let bannerHeight = height ?? width * 0.108
-        return Image("BreakfastHeader")
+        return Image("BannerHeader")
             .resizable()
             .scaledToFill()
-            .frame(width: width, height: bannerHeight, alignment: .top)
+            .frame(width: width, height: bannerHeight)
             .clipped()
-            .overlay {
-                Text("ZEEWORDS")
-                    .font(.system(size: min(width * 0.043, bannerHeight * 0.4), weight: .heavy, design: .rounded))
-                    .foregroundStyle(.white)
-                    .frame(width: width * 0.36, height: height == nil ? bannerHeight * 0.72 : bannerHeight)
-                    .background(Palette.background, in: RoundedRectangle(cornerRadius: 9))
-                    .overlay(RoundedRectangle(cornerRadius: 9).stroke(Palette.accent, lineWidth: 1))
-            }
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .accessibilityLabel("ZeeWords")
     }
