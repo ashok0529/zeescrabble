@@ -34,6 +34,7 @@ struct GameView: View {
     @State private var showingExchange = false
     @State private var exchangeIDs = Set<UUID>()
     @State private var showingRules = false
+    @State private var showingWordLookup = false
     @State private var confirmingNew = false
     @State private var confirmingPass = false
     @State private var showingVictory = false
@@ -41,23 +42,22 @@ struct GameView: View {
     var body: some View {
         NavigationStack {
             GeometryReader { geometry in
-                ScrollView {
-                    VStack(spacing: 18) {
-                        breakfastHeader(width: geometry.size.width - 32)
-                        scores
-                        boardHeader
-                        boardViewport(size: geometry.size)
-                        if store.game.finished { gameResult } else { rackPanel }
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("LAST MOVES").font(.caption.weight(.bold)).tracking(2)
-                            if store.game.history.isEmpty { Text("Cover the center star to begin.").foregroundStyle(.secondary) }
-                            ForEach(Array(store.game.history.prefix(12).enumerated()), id: \.offset) { _, text in
-                                Text(text).font(.subheadline).frame(maxWidth: .infinity, alignment: .leading)
-                            }
+                if geometry.size.width >= 900 {
+                    wideLayout(size: geometry.size)
+                } else {
+                    ScrollView {
+                        VStack(spacing: 18) {
+                            breakfastHeader(width: min(geometry.size.width - 32, 600))
+                            scores
+                            boardHeader
+                            boardViewport(size: CGSize(width: min(geometry.size.width, 632), height: geometry.size.height))
+                            if store.game.finished { gameResult } else { rackPanel }
+                            moveHistory
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: 600)
+                        .padding(16)
+                        .frame(maxWidth: .infinity)
                     }
-                    .padding(16)
                 }
             }
             .background(Palette.background)
@@ -65,7 +65,12 @@ struct GameView: View {
             .navigationTitle("ZeeWords")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) { Button { showingRules = true } label: { Image(systemName: "questionmark.circle") } }
+                ToolbarItemGroup(placement: .topBarLeading) {
+                    Button { showingRules = true } label: { Image(systemName: "questionmark.circle") }
+                    Button { showingWordLookup = true } label: { Image(systemName: "book.fill") }
+                        .accessibilityLabel("Look up a word and meaning")
+                        .disabled(store.lexicon == nil)
+                }
                 ToolbarItem(placement: .topBarTrailing) { Button("New game") { confirmingNew = true } }
             }
             .task { await store.load() }
@@ -79,6 +84,9 @@ struct GameView: View {
             .sheet(isPresented: $showingBlank) { blankPicker }
             .sheet(isPresented: $showingExchange) { exchangePicker }
             .sheet(isPresented: $showingRules) { rules }
+            .sheet(isPresented: $showingWordLookup) {
+                if let lexicon = store.lexicon { WordLookupView(lexicon: lexicon, meanings: store.meanings) }
+            }
             .onChange(of: store.game.finished) { _, finished in
                 if finished && !store.loading && store.game.scores[0] > store.game.scores[1] {
                     showingVictory = true
@@ -104,6 +112,43 @@ struct GameView: View {
         .tint(Palette.accent)
         .preferredColorScheme(.dark)
     }
+    private func wideLayout(size: CGSize) -> some View {
+        // On a laptop, use the horizontal space for a large board and a compact control column
+        // so scores, rack, and Play remain visible without vertical scrolling.
+        let side = min(size.width - 420, 900)
+        let contentWidth = side + 380
+        return ScrollView {
+            VStack(spacing: 16) {
+                breakfastHeader(width: contentWidth, height: 72)
+                HStack(alignment: .top, spacing: 24) {
+                    boardViewport(size: CGSize(width: side + 32, height: side), square: true)
+                        .frame(width: side)
+                    VStack(spacing: 18) {
+                        scores
+                        boardHeader
+                        if store.game.finished { gameResult } else { rackPanel }
+                        moveHistory
+                    }
+                    .frame(width: 356)
+                }
+            }
+            .frame(width: contentWidth)
+            .padding(16)
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    private var moveHistory: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("LAST MOVES").font(.caption.weight(.bold)).tracking(2)
+            if store.game.history.isEmpty { Text("Cover the center star to begin.").foregroundStyle(.secondary) }
+            ForEach(Array(store.game.history.prefix(12).enumerated()), id: \.offset) { _, text in
+                Text(text).font(.subheadline).frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private func newGame() {
         store.reset()
         zoomOut()
@@ -119,31 +164,32 @@ struct GameView: View {
         .padding(20)
         .background(Palette.surface, in: RoundedRectangle(cornerRadius: 16))
     }
-    private func breakfastHeader(width: CGFloat) -> some View {
-        Image("BreakfastHeader")
+    private func breakfastHeader(width: CGFloat, height: CGFloat? = nil) -> some View {
+        let bannerHeight = height ?? width * 0.108
+        return Image("BreakfastHeader")
             .resizable()
             .scaledToFill()
-            .frame(width: width, height: width * 0.108, alignment: .top)
+            .frame(width: width, height: bannerHeight, alignment: .top)
             .clipped()
             .overlay {
                 Text("ZEEWORDS")
-                    .font(.system(size: width * 0.043, weight: .heavy, design: .rounded))
+                    .font(.system(size: min(width * 0.043, bannerHeight * 0.4), weight: .heavy, design: .rounded))
                     .foregroundStyle(.white)
-                    .frame(width: width * 0.36, height: width * 0.078)
+                    .frame(width: width * 0.36, height: height == nil ? bannerHeight * 0.72 : bannerHeight)
                     .background(Palette.background, in: RoundedRectangle(cornerRadius: 9))
                     .overlay(RoundedRectangle(cornerRadius: 9).stroke(Palette.accent, lineWidth: 1))
             }
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .accessibilityLabel("ZeeWords")
     }
-    private func boardViewport(size: CGSize) -> some View {
+    private func boardViewport(size: CGSize, square: Bool = false) -> some View {
         let side = max(270, size.width - 32)
         return ZoomBoard(side: side, scale: zoomScale, focus: focusedCell,
                          revision: focusRevision, enabled: !store.thinking,
                          coordinates: boardCoordinates, onZoomEnd: { zoomScale = $0 }) {
             board(cell: side / 15).frame(width: side, height: side)
         }
-        .frame(height: min(size.width - 32, size.height * 0.53))
+        .frame(height: square ? side : min(size.width - 32, size.height * 0.53))
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { boardFrame = $0 }
         .background(.white)
         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.white.opacity(0.9), lineWidth: 2).allowsHitTesting(false))
@@ -387,6 +433,61 @@ struct GameView: View {
                 }.padding()
             }.navigationTitle("How to play").toolbar { Button("Done") { showingRules = false } }
         }
+    }
+}
+
+private struct WordLookupView: View {
+    let lexicon: Lexicon
+    let meanings: WordMeanings
+    @Environment(\.dismiss) private var dismiss
+    @State private var query = ""
+    @FocusState private var focused: Bool
+
+    private var word: String { query.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() }
+    private var validInput: Bool {
+        (2...15).contains(word.utf8.count) && word.utf8.allSatisfy { (65...90).contains($0) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Enter a word", text: $query)
+                        .textInputAutocapitalization(.characters)
+                        .autocorrectionDisabled()
+                        .focused($focused)
+                        .submitLabel(.done)
+                        .onSubmit { focused = false }
+                        .accessibilityLabel("Word to look up")
+                } footer: {
+                    Text("Checks this game’s bundled dictionary. Use 2–15 letters, A–Z.")
+                }
+                if !word.isEmpty {
+                    Section {
+                        if !validInput {
+                            Label("Enter one word of 2–15 letters, A–Z.", systemImage: "info.circle")
+                        } else if lexicon.contains(word) {
+                            Label("\(word) is in the game dictionary.", systemImage: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                            if let meaning = meanings.meaning(for: word) {
+                                Text(meaning).textSelection(.enabled)
+                            } else {
+                                Text("Although this is a valid scrabble word, meaning not available. Please check scrabble.merriam.com")
+                                Link("Look up \(word) on scrabble.merriam.com",
+                                     destination: URL(string: "https://scrabble.merriam.com/finder/")!.appendingPathComponent(word.lowercased()))
+                            }
+                        } else {
+                            Label("\(word) isn’t in the game dictionary.", systemImage: "xmark.circle")
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Word lookup")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .onAppear { focused = true }
+        }
+        .presentationDetents([.medium, .large])
     }
 }
 

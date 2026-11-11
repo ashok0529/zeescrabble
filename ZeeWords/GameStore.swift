@@ -11,6 +11,7 @@ import SwiftUI
     var loading = true
     var message: String?
     var lexicon: Lexicon?
+    var meanings = WordMeanings(text: "")
     private var worker: Task<ComputerMove?, Never>?
     private var generation = UUID()
     private var saveURL: URL {
@@ -30,10 +31,14 @@ import SwiftUI
         guard let url = Bundle.main.url(forResource: "dictionary", withExtension: "txt") else {
             message = "The dictionary is missing. Please reinstall the app."; return
         }
-        let loaded = await Task.detached(priority: .userInitiated) {
-            (try? String(contentsOf: url, encoding: .utf8)).map { Lexicon(text: $0) }
+        let meaningsURL = Bundle.main.url(forResource: "dictwithmeaning", withExtension: "txt")
+        let (loaded, loadedMeanings) = await Task.detached(priority: .userInitiated) {
+            let lexicon = (try? String(contentsOf: url, encoding: .utf8)).map { Lexicon(text: $0) }
+            let text = meaningsURL.flatMap { try? String(contentsOf: $0, encoding: .utf8) } ?? ""
+            return (lexicon, WordMeanings(text: text))
         }.value
         guard let loaded else { message = "Couldn’t load the dictionary."; return }
+        meanings = loadedMeanings
         lexicon = loaded; loading = false
         startComputer()
     }

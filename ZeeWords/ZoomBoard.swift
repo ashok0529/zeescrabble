@@ -63,6 +63,8 @@ struct ZoomBoard<Content: View>: UIViewRepresentable {
             coordinator.host.view.frame = CGRect(x: 0, y: 0, width: side, height: side)
             scroll.contentSize = CGSize(width: side, height: side)
             coordinator.side = side
+            // Reapply the requested zoom after a window resize changes the board size.
+            coordinator.revision = -1
         }
         guard coordinator.revision != revision else { return }
         coordinator.revision = revision
