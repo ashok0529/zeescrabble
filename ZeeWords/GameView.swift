@@ -125,7 +125,7 @@ struct GameView: View {
                         .frame(width: side)
                     VStack(spacing: 18) {
                         scores
-                        boardHeader
+                        wideBoardHeader
                         if store.game.finished { gameResult } else { rackPanel }
                         moveHistory
                     }
@@ -176,8 +176,9 @@ struct GameView: View {
     }
     private func boardViewport(size: CGSize, square: Bool = false) -> some View {
         let side = max(270, size.width - 32)
-        return ZoomBoard(side: side, scale: zoomScale, focus: focusedCell,
-                         revision: focusRevision, enabled: !store.thinking,
+        let allowsZoom = !square
+        return ZoomBoard(side: side, scale: allowsZoom ? zoomScale : 1, focus: focusedCell,
+                         revision: focusRevision, enabled: !store.thinking && allowsZoom,
                          coordinates: boardCoordinates, onZoomEnd: { zoomScale = $0 }) {
             board(cell: side / 15).frame(width: side, height: side)
         }
@@ -187,7 +188,7 @@ struct GameView: View {
         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.white.opacity(0.9), lineWidth: 2).allowsHitTesting(false))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .onChange(of: store.placed) { old, new in
-            if let cell = new.keys.sorted().first(where: { old[$0]?.id != new[$0]?.id }) { focus(on: cell) }
+            if allowsZoom, let cell = new.keys.sorted().first(where: { old[$0]?.id != new[$0]?.id }) { focus(on: cell) }
         }
         .onChange(of: store.thinking) { _, thinking in if thinking { zoomOut() } }
     }
@@ -249,7 +250,18 @@ struct GameView: View {
                             Button { zoomScale = zoomed ? 1 : 2; focusRevision += 1 } label: { Image(systemName: zoomed ? "minus.magnifyingglass" : "plus.magnifyingglass") }
                                 .accessibilityLabel(zoomed ? "Fit board" : "Enlarge board")
                                 .disabled(store.thinking)
-                        }
+                            }
+    }
+    private var wideBoardHeader: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(status).font(.headline)
+                Text("\(store.game.bag.count) tiles in bag · \(store.game.racks[1].count) on computer’s rack")
+                    .font(.caption).foregroundStyle(.white.opacity(0.65))
+            }
+            Spacer()
+            if store.thinking || store.loading { ProgressView().tint(Palette.accent) }
+        }
     }
     private func focus(on cell: Int) {
         focusedCell = cell
